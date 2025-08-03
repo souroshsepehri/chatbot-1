@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Persian Font Import */
+@import url('https://fonts.googleapis.com/css2?family=Vazir:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+/* Base styles for RTL support */
+html {
+  direction: rtl;
+}
+
+body {
+  font-family: 'Vazir', Tahoma, Arial, sans-serif;
+  direction: rtl;
+}
+
+/* Custom scrollbar for chat */
+.chat-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.chat-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* RTL specific styles */
+.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Chat widget animations */
+@keyframes slideIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chat-widget-enter {
+  animation: slideIn 0.3s ease-out;
+}
+
+.message-enter {
+  animation: fadeIn 0.3s ease-out;
+} 

@@ -1,0 +1,24 @@
+{
+  "faqs": [
+    {
+      "question": "What is your name?",
+      "answer": "My name is ChatBot, and I'm here to help you with your questions!"
+    },
+    {
+      "question": "How are you?",
+      "answer": "I'm doing well, thank you for asking! How can I assist you today?"
+    },
+    {
+      "question": "What time is it?",
+      "answer": "I don't have access to real-time information, but you can check your device's clock for the current time."
+    },
+    {
+      "question": "What is the weather like?",
+      "answer": "I don't have access to real-time weather data. You can check a weather app or website for current conditions."
+    },
+    {
+      "question": "Tell me a joke",
+      "answer": "Why don't scientists trust atoms? Because they make up everything! 😄"
+    }
+  ]
+} 

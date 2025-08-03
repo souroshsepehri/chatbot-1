@@ -1,0 +1,4 @@
+# Fallback Logs - Unanswered Questions
+# Format: [Timestamp] Question: [user_question]
+ 
+[2024-01-01 12:00:00] Question: Sample unanswered question [2025-07-31 15:32:57] Question: سلام

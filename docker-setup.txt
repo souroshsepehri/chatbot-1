@@ -1,0 +1,511 @@
+# Chatbot Docker Setup - Complete Configuration
+# This file contains all Docker-related files and scripts for the chatbot project
+
+================================================================================
+1. BACKEND DOCKERFILE (backend/Dockerfile)
+================================================================================
+
+# Use Python 3.11 slim image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user for security
+RUN adduser --disabled-password --gecos '' appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+================================================================================
+2. FRONTEND DOCKERFILE (frontend/Dockerfile)
+================================================================================
+
+# Build stage
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM node:18-alpine AS runner
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application from builder stage
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+# Set ownership
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+# Expose port
+EXPOSE 3000
+
+# Set environment variable
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
+# Start the application
+CMD ["node", "server.js"]
+
+================================================================================
+3. DOCKER COMPOSE (docker-compose.yml)
+================================================================================
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatbot-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=production
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chatbot-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge
+
+volumes:
+  chatbot-data:
+
+================================================================================
+4. BACKEND DOCKERIGNORE (backend/.dockerignore)
+================================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+docs/
+*.md
+
+================================================================================
+5. FRONTEND DOCKERIGNORE (frontend/.dockerignore)
+================================================================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env*.local
+.env
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Testing
+coverage/
+.nyc_output/
+
+# Documentation
+*.md
+README.md
+
+================================================================================
+6. ENVIRONMENT EXAMPLE (env.example)
+================================================================================
+
+# OpenAI API Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Environment
+ENVIRONMENT=production
+
+# Frontend Configuration
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+================================================================================
+7. WINDOWS POWERSHELL SCRIPT (docker-run.ps1)
+================================================================================
+
+# Docker Run Script for Chatbot
+# This script helps you set up and run the chatbot using Docker
+
+Write-Host "🐳 Chatbot Docker Setup" -ForegroundColor Cyan
+Write-Host "========================" -ForegroundColor Cyan
+
+# Check if Docker is installed
+try {
+    docker --version | Out-Null
+    Write-Host "✅ Docker is installed" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Docker is not installed. Please install Docker Desktop first." -ForegroundColor Red
+    exit 1
+}
+
+# Check if Docker is running
+try {
+    docker info | Out-Null
+    Write-Host "✅ Docker is running" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Docker is not running. Please start Docker Desktop." -ForegroundColor Red
+    exit 1
+}
+
+# Check if .env file exists
+if (-not (Test-Path ".env")) {
+    Write-Host "📝 Creating .env file from template..." -ForegroundColor Yellow
+    if (Test-Path "env.example") {
+        Copy-Item "env.example" ".env"
+        Write-Host "⚠️  Please edit the .env file and add your OpenAI API key before continuing." -ForegroundColor Yellow
+        Write-Host "   You can open it with: notepad .env" -ForegroundColor White
+        $response = Read-Host "Press Enter when you've added your API key, or 'n' to cancel"
+        if ($response -eq 'n') {
+            exit 0
+        }
+    } else {
+        Write-Host "❌ env.example file not found. Please create a .env file manually." -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Check if OPENAI_API_KEY is set
+$envContent = Get-Content ".env" -ErrorAction SilentlyContinue
+if ($envContent -and ($envContent | Select-String "OPENAI_API_KEY=your_openai_api_key_here")) {
+    Write-Host "⚠️  Please update your OpenAI API key in the .env file before continuing." -ForegroundColor Yellow
+    $response = Read-Host "Press Enter when you've updated your API key, or 'n' to cancel"
+    if ($response -eq 'n') {
+        exit 0
+    }
+}
+
+Write-Host "🚀 Starting Docker services..." -ForegroundColor Green
+
+# Build and start services
+try {
+    docker-compose up --build
+} catch {
+    Write-Host "❌ Failed to start Docker services. Error: $_" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "✅ Services started successfully!" -ForegroundColor Green
+Write-Host "🌐 Frontend: http://localhost:3000" -ForegroundColor Cyan
+Write-Host "🔧 Backend API: http://localhost:8000" -ForegroundColor Cyan
+Write-Host "📚 API Docs: http://localhost:8000/docs" -ForegroundColor Cyan
+
+================================================================================
+8. LINUX/MAC BASH SCRIPT (docker-run.sh)
+================================================================================
+
+#!/bin/bash
+
+# Docker Run Script for Chatbot
+# This script helps you set up and run the chatbot using Docker
+
+echo "🐳 Chatbot Docker Setup"
+echo "========================"
+
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker is not installed. Please install Docker first."
+    exit 1
+fi
+
+# Check if Docker is running
+if ! docker info &> /dev/null; then
+    echo "❌ Docker is not running. Please start Docker."
+    exit 1
+fi
+
+echo "✅ Docker is installed and running"
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo "📝 Creating .env file from template..."
+    if [ -f "env.example" ]; then
+        cp env.example .env
+        echo "⚠️  Please edit the .env file and add your OpenAI API key before continuing."
+        echo "   You can open it with: nano .env or your preferred editor"
+        read -p "Press Enter when you've added your API key, or 'n' to cancel: " response
+        if [ "$response" = "n" ]; then
+            exit 0
+        fi
+    else
+        echo "❌ env.example file not found. Please create a .env file manually."
+        exit 1
+    fi
+fi
+
+# Check if OPENAI_API_KEY is set
+if grep -q "OPENAI_API_KEY=your_openai_api_key_here" .env; then
+    echo "⚠️  Please update your OpenAI API key in the .env file before continuing."
+    read -p "Press Enter when you've updated your API key, or 'n' to cancel: " response
+    if [ "$response" = "n" ]; then
+        exit 0
+    fi
+fi
+
+echo "🚀 Starting Docker services..."
+
+# Build and start services
+if docker-compose up --build; then
+    echo "✅ Services started successfully!"
+    echo "🌐 Frontend: http://localhost:3000"
+    echo "🔧 Backend API: http://localhost:8000"
+    echo "📚 API Docs: http://localhost:8000/docs"
+else
+    echo "❌ Failed to start Docker services."
+    exit 1
+fi
+
+================================================================================
+9. NEXT.JS CONFIGURATION UPDATE (frontend/next.config.js)
+================================================================================
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Enable standalone output for Docker
+  output: 'standalone',
+  // appDir is now default in Next.js 14, so we don't need to specify it
+}
+
+module.exports = nextConfig
+
+================================================================================
+10. USAGE INSTRUCTIONS
+================================================================================
+
+QUICK START:
+1. Copy env.example to .env and add your OpenAI API key
+2. Run: docker-compose up --build
+3. Access: Frontend (http://localhost:3000), Backend (http://localhost:8000)
+
+WINDOWS:
+- Run: .\docker-run.ps1
+
+LINUX/MAC:
+- Run: chmod +x docker-run.sh && ./docker-run.sh
+
+MANUAL COMMANDS:
+- Build: docker-compose up --build
+- Stop: docker-compose down
+- Logs: docker-compose logs -f
+- Rebuild: docker-compose up --build --force-recreate
+
+ENVIRONMENT VARIABLES:
+- OPENAI_API_KEY: Your OpenAI API key (required)
+- ENVIRONMENT: Environment setting (default: production)
+- NEXT_PUBLIC_API_URL: Backend API URL (default: http://localhost:8000)
+
+PORTS:
+- Frontend: 3000
+- Backend: 8000
+
+HEALTH CHECKS:
+- Backend: http://localhost:8000/health
+- Frontend: http://localhost:3000
+
+TROUBLESHOOTING:
+- Check Docker is running: docker info
+- Verify .env file exists and has API key
+- Check ports are not in use
+- View logs: docker-compose logs
+
+================================================================================
+END OF DOCKER SETUP FILES
+================================================================================ 
