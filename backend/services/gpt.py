@@ -3,6 +3,7 @@ GPT service to handle OpenAI API requests.
 """
 
 import os
+import time
 from typing import Optional
 import openai
 from dotenv import load_dotenv
@@ -13,18 +14,18 @@ load_dotenv()
 
 class GPTService:
     """Service to handle GPT-4 API requests."""
-    
+
     def __init__(self):
-        """Initialize the GPT service."""
+        """Initialize the GPT service. Does not hard-fail if API key is missing."""
         api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        
-        # Configure OpenAI for older version
-        openai.api_key = api_key
+        self.available = bool(api_key)
+        if api_key:
+            # Configure OpenAI for older version compatibility
+            openai.api_key = api_key
         self.model = "gpt-4"
-        self.max_tokens = 150
+        self.max_tokens = 100  # Reduced for faster responses
         self.temperature = 0.7
+        self.timeout = 10  # 10 second timeout
     
     def get_response(self, message: str) -> Optional[str]:
         """
@@ -36,13 +37,17 @@ class GPTService:
         Returns:
             Optional[str]: The GPT response, or None if failed
         """
+        if not self.available:
+            return None
         try:
+            start_time = time.time()
+            
             response = openai.ChatCompletion.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant. Provide clear, concise, and accurate answers. Avoid vague responses and excessive hedging."
+                        "content": "You are a helpful assistant. Provide clear, concise, and accurate answers. Keep responses brief and to the point."
                     },
                     {
                         "role": "user",
@@ -50,8 +55,12 @@ class GPTService:
                     }
                 ],
                 max_tokens=self.max_tokens,
-                temperature=self.temperature
+                temperature=self.temperature,
+                timeout=self.timeout
             )
+            
+            response_time = time.time() - start_time
+            print(f"GPT response time: {response_time:.2f}s")
             
             return response.choices[0].message.content.strip()
             
@@ -70,8 +79,12 @@ class GPTService:
         Returns:
             Optional[str]: The GPT response, or None if failed
         """
+        if not self.available:
+            return None
         try:
-            system_prompt = "You are a helpful assistant. Provide clear, concise, and accurate answers. Avoid vague responses and excessive hedging."
+            start_time = time.time()
+            
+            system_prompt = "You are a helpful assistant. Provide clear, concise, and accurate answers. Keep responses brief and to the point."
             
             if context:
                 system_prompt += f"\n\nContext: {context}"
@@ -89,8 +102,12 @@ class GPTService:
                     }
                 ],
                 max_tokens=self.max_tokens,
-                temperature=self.temperature
+                temperature=self.temperature,
+                timeout=self.timeout
             )
+            
+            response_time = time.time() - start_time
+            print(f"GPT response time: {response_time:.2f}s")
             
             return response.choices[0].message.content.strip()
             

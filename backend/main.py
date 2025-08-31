@@ -36,7 +36,13 @@ async def root():
             "chat": "/chat/",
             "health": "/chat/health",
             "faqs": "/chat/faqs",
-            "logs": "/chat/logs"
+            "faqs_semantic": "/chat/faqs/semantic",
+            "rebuild_embeddings": "/chat/faqs/rebuild-embeddings",
+            "adapter_upsert": "/chat/faqs/adapter/upsert",
+            "adapter_rebuild": "/chat/faqs/adapter/rebuild-embeddings",
+            "logs": "/chat/logs",
+            "stats": "/chat/stats",
+            "performance": "/chat/performance"
         }
     }
 
@@ -44,7 +50,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Global health check endpoint."""
-    return {"status": "healthy", "message": "ChatBot API is running"}
+    return {"status": "healthy"}
 
 
 if __name__ == "__main__":
